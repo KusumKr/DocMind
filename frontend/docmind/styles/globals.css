@@ -1,0 +1,17 @@
+docmind-app
+├── src
+│   ├── components
+│   │   ├── ChatInterface.tsx
+│   │   └── PDFViewer.tsx
+│   ├── context
+│   │   └── ThemeContext.tsx
+│   ├── hooks
+│   │   └── useTheme.ts
+│   ├── types
+│   │   └── index.ts
+│   └── App.tsx
+├── public
+│   └── index.html
+├── package.json
+├── tsconfig.json
+└── README.md
