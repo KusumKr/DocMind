@@ -368,74 +368,86 @@ export default function DocMind() {
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    setPdfFile(file)
+  setPdfFile(file)
 
-    const formData = new FormData()
-    formData.append("file", file)
+  const formData = new FormData()
+  formData.append("pdf", file) // ← Changed from "file" to "pdf"
 
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+  try {
+    // ← Changed endpoint to match backend
+    const response = await fetch("http://localhost:5000/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-      if (response.ok) {
-        const data = await response.json()
-        setFileId(data.fileId)
-        setMessages([])
-      } else {
-        alert("Failed to upload PDF")
-      }
-    } catch (error) {
-      console.error("Upload error:", error)
-      alert("Error uploading PDF")
+    if (response.ok) {
+      const data = await response.json()
+      setFileId(data.documentId) // ← Changed from fileId to documentId
+      setMessages([])
+      alert(`PDF uploaded successfully! ${data.numPages} pages processed.`)
+    } else {
+      const error = await response.json()
+      alert(`Failed to upload PDF: ${error.error}`)
     }
+  } catch (error) {
+    console.error("Upload error:", error)
+    alert("Error uploading PDF. Make sure backend is running on port 5000")
   }
+}
 
-  const handleSendMessage = async (question: string) => {
-    if (!fileId) return
+ const handleSendMessage = async (question: string) => {
+  if (!fileId) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: question,
-    }
-    setMessages((prev) => [...prev, userMessage])
-
-    setIsLoading(true)
-
-    try {
-      const response = await fetch("/api/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, fileId }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-
-        const citations: Citation[] = data.citations || []
-
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.answer,
-          citations,
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      } else {
-        alert("Failed to get response")
-      }
-    } catch (error) {
-      console.error("Query error:", error)
-      alert("Error querying PDF")
-    } finally {
-      setIsLoading(false)
-    }
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: question,
   }
+  setMessages((prev) => [...prev, userMessage])
+
+  setIsLoading(true)
+
+  try {
+    // ← Changed endpoint to match backend
+    const response = await fetch("http://localhost:5000/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        question, 
+        documentId: fileId // ← Changed from fileId to documentId
+      }),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+
+      // Parse citations from backend response
+      const citations: Citation[] = (data.citations || []).map((c: any) => ({
+        page: c.page,
+        text: c.snippet || c.text || ""
+      }))
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.answer,
+        citations,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+    } else {
+      const error = await response.json()
+      alert(`Failed to get response: ${error.error}`)
+    }
+  } catch (error) {
+    console.error("Query error:", error)
+    alert("Error querying PDF. Make sure backend is running.")
+  } finally {
+    setIsLoading(false)
+  }
+}
 
   const handleCitationClick = (page: number) => {
     pdfViewerRef.current?.scrollToPage(page)
